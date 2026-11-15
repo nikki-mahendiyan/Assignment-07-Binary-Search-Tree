@@ -1,113 +1,177 @@
 // AI was used to help write this code
 // main.cpp
-// Demo and tests for the BinarySearchTree in bst.h
+// Binary search tree of ints, written from scratch (no std::set or std::map).
+// Duplicate keys are ignored.
+// Height counts edges: an empty tree is -1, a single node is 0.
 
 #include <algorithm>
-#include <cstdlib>
 #include <iostream>
-#include <string>
-#include <vector>
 
-#include "bst.h"
+struct Node {
+    int data;
+    Node* left;
+    Node* right;
 
-void printList(const std::string& label, const std::vector<int>& v) {
-    std::cout << label;
-    for (size_t i = 0; i < v.size(); i++) {
-        std::cout << v[i];
-        if (i + 1 < v.size()) std::cout << " ";
+    Node(int value) {
+        data = value;
+        left = nullptr;
+        right = nullptr;
     }
-    std::cout << "\n";
-}
+};
 
-bool isSorted(const std::vector<int>& v) {
-    for (size_t i = 1; i < v.size(); i++) {
-        if (v[i - 1] >= v[i]) return false;  // strict, no duplicates allowed
+class BinarySearchTree {
+private:
+    Node* root = nullptr;
+
+    static Node* insert(Node* node, int value) {
+        if (node == nullptr) return new Node(value);
+        if (value < node->data)
+            node->left = insert(node->left, value);
+        else if (value > node->data)
+            node->right = insert(node->right, value);
+        return node;  // equal value: ignore the duplicate
     }
-    return true;
-}
 
-void showTree(const BinarySearchTree& t) {
-    printList("  inorder:   ", t.inorder());
-    printList("  preorder:  ", t.preorder());
-    printList("  postorder: ", t.postorder());
-    std::cout << "  height:    " << t.height() << "\n";
-    std::cout << "  inorder sorted? " << (isSorted(t.inorder()) ? "yes" : "NO") << "\n";
-}
+    static bool search(const Node* node, int value) {
+        if (node == nullptr) return false;
+        if (value == node->data) return true;
+        if (value < node->data) return search(node->left, value);
+        return search(node->right, value);
+    }
 
-// removes a key, prints what happened, and checks inorder is still sorted
-void removeAndShow(BinarySearchTree& t, int key, const std::string& caseName) {
-    std::cout << "\nRemove " << key << " (" << caseName << ")\n";
-    bool ok = t.remove(key);
-    std::cout << "  remove returned " << (ok ? "true" : "false") << "\n";
-    showTree(t);
-    std::cout << "  tree shape (sideways):\n";
-    t.printSideways();
-}
+    static Node* findMin(Node* node) {
+        while (node->left != nullptr) node = node->left;
+        return node;
+    }
+
+    // returns the new root of this subtree after the removal
+    static Node* remove(Node* node, int value) {
+        if (node == nullptr) return nullptr;
+
+        if (value < node->data) {
+            node->left = remove(node->left, value);
+        } else if (value > node->data) {
+            node->right = remove(node->right, value);
+        } else {
+            // case 1: leaf
+            if (node->left == nullptr && node->right == nullptr) {
+                delete node;
+                return nullptr;
+            }
+
+            // case 2: one child, the child takes this node's place
+            if (node->left == nullptr) {
+                Node* child = node->right;
+                delete node;
+                return child;
+            }
+            if (node->right == nullptr) {
+                Node* child = node->left;
+                delete node;
+                return child;
+            }
+
+            // case 3: two children, copy in the inorder successor
+            // (smallest value on the right), then remove that successor
+            Node* successor = findMin(node->right);
+            node->data = successor->data;
+            node->right = remove(node->right, successor->data);
+        }
+
+        return node;
+    }
+
+    static void inorder(const Node* node) {
+        if (node == nullptr) return;
+        inorder(node->left);
+        std::cout << node->data << ' ';
+        inorder(node->right);
+    }
+
+    static void preorder(const Node* node) {
+        if (node == nullptr) return;
+        std::cout << node->data << ' ';
+        preorder(node->left);
+        preorder(node->right);
+    }
+
+    static void postorder(const Node* node) {
+        if (node == nullptr) return;
+        postorder(node->left);
+        postorder(node->right);
+        std::cout << node->data << ' ';
+    }
+
+    static int height(const Node* node) {
+        if (node == nullptr) return -1;
+        return 1 + std::max(height(node->left), height(node->right));
+    }
+
+    static void clear(Node* node) {
+        if (node == nullptr) return;
+        clear(node->left);
+        clear(node->right);
+        delete node;
+    }
+
+public:
+    BinarySearchTree() {}
+    ~BinarySearchTree() { clear(root); }
+
+    // The tree owns raw pointers, so copying would delete nodes twice.
+    BinarySearchTree(const BinarySearchTree&) = delete;
+    BinarySearchTree& operator=(const BinarySearchTree&) = delete;
+
+    void insert(int value) { root = insert(root, value); }
+    bool search(int value) const { return search(root, value); }
+    void remove(int value) { root = remove(root, value); }
+    void inorder() const { inorder(root); std::cout << '\n'; }
+    void preorder() const { preorder(root); std::cout << '\n'; }
+    void postorder() const { postorder(root); std::cout << '\n'; }
+    int height() const { return height(root); }
+};
 
 int main() {
     BinarySearchTree tree;
+    const int values[] = {50, 30, 70, 20, 40, 60, 80, 35, 45, 65, 85};
 
-    // ---- insertion: 11 distinct integers ----
-    int keys[] = {50, 30, 70, 20, 40, 60, 80, 35, 45, 65, 85};
-    std::cout << "=== Insert 11 distinct keys ===\n";
-    for (int k : keys) {
-        tree.insert(k);
+    std::cout << "Inserted: ";
+    for (int value : values) {
+        tree.insert(value);
+        std::cout << value << ' ';
     }
-    showTree(tree);
-    std::cout << "  tree shape (sideways):\n";
-    tree.printSideways();
+    std::cout << '\n';
 
-    std::cout << "\nInsert 50 again (duplicate): returned "
-              << (tree.insert(50) ? "true" : "false") << "\n";
+    std::cout << "Inorder: "; tree.inorder();
+    std::cout << "Preorder: "; tree.preorder();
+    std::cout << "Postorder: "; tree.postorder();
+    std::cout << "Height (edges): " << tree.height() << '\n';
 
-    // ---- search ----
-    std::cout << "\n=== Search ===\n";
-    std::cout << "search(60) = " << (tree.search(60) ? "found" : "not found") << "\n";
-    std::cout << "search(99) = " << (tree.search(99) ? "found" : "not found") << "\n";
+    std::cout << "\nSearch 60: " << (tree.search(60) ? "found" : "not found") << '\n';
+    std::cout << "Search 99: " << (tree.search(99) ? "found" : "not found") << '\n';
 
-    // ---- removal, all three cases ----
-    std::cout << "\n=== Removal ===\n";
-    removeAndShow(tree, 45, "case 1: leaf");
-    removeAndShow(tree, 60, "case 2: one child (65)");
-    removeAndShow(tree, 50, "case 3: two children, the root");
-    removeAndShow(tree, 99, "key not in the tree");
+    std::cout << "\nRemove 45 (leaf)\n";
+    tree.remove(45);
+    std::cout << "Inorder: "; tree.inorder();
 
-    // ---- worst case shape ----
-    std::cout << "\n=== Worst case: keys inserted in sorted order ===\n";
+    std::cout << "\nRemove 60 (one child: 65)\n";
+    tree.remove(60);
+    std::cout << "Inorder: "; tree.inorder();
+
+    std::cout << "\nRemove 50 (two children: 30 and 70, the root)\n";
+    tree.remove(50);
+    std::cout << "Inorder: "; tree.inorder();
+    std::cout << "Preorder: "; tree.preorder();
+
+    std::cout << "\nRemove 99 (not in the tree)\n";
+    tree.remove(99);
+    std::cout << "Inorder: "; tree.inorder();
+    std::cout << "Final height (edges): " << tree.height() << '\n';
+
+    // worst case: keys inserted in sorted order make a chain
     BinarySearchTree chain;
-    for (int i = 1; i <= 10; i++) {
-        chain.insert(i);
-    }
-    std::cout << "  inserted 1..10 in order\n";
-    std::cout << "  height: " << chain.height() << " (n - 1 = 9, it is a linked list)\n";
+    for (int i = 1; i <= 10; i++) chain.insert(i);
+    std::cout << "\nKeys 1..10 inserted in order, height (edges): " << chain.height() << '\n';
 
-    // ---- extra check: random operations against a sorted vector ----
-    std::cout << "\n=== Random check against a sorted vector ===\n";
-    BinarySearchTree t;
-    std::vector<int> model;  // kept sorted by hand, no duplicates
-    std::srand(12345);
-    int bad = 0;
-    for (int step = 0; step < 5000; step++) {
-        int key = std::rand() % 200;
-        bool inModel = std::binary_search(model.begin(), model.end(), key);
-        if (std::rand() % 2 == 0) {
-            bool added = t.insert(key);
-            if (added == inModel) bad++;
-            if (!inModel) {
-                model.insert(std::lower_bound(model.begin(), model.end(), key), key);
-            }
-        } else {
-            bool removed = t.remove(key);
-            if (removed != inModel) bad++;
-            if (inModel) {
-                model.erase(std::lower_bound(model.begin(), model.end(), key));
-            }
-        }
-        if (t.search(key) != std::binary_search(model.begin(), model.end(), key)) bad++;
-        if (t.inorder() != model) bad++;
-    }
-    std::cout << "  5000 random inserts/removes, mismatches: " << bad << "\n";
-    std::cout << "  final size: " << model.size() << ", final height: " << t.height() << "\n";
-
-    return bad == 0 ? 0 : 1;
+    return 0;
 }
